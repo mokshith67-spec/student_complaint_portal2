@@ -12,10 +12,13 @@ menu = st.sidebar.selectbox("Menu", [
     "Admin Login"
 ])
 
-# Session state for student login
+# Session states
 if "student_logged_in" not in st.session_state:
     st.session_state.student_logged_in = False
     st.session_state.roll = ""
+
+if "admin_logged_in" not in st.session_state:
+    st.session_state.admin_logged_in = False
 
 # Database
 conn = sqlite3.connect("/tmp/complaints.db", check_same_thread=False)
@@ -58,7 +61,6 @@ elif menu == "Student Login":
             if result:
                 st.session_state.student_logged_in = True
                 st.session_state.roll = roll
-                st.success("Login Successful")
                 st.rerun()
             else:
                 st.error("Invalid Roll Number or Password")
@@ -90,37 +92,46 @@ elif menu == "Student Login":
 
 # Admin Login
 elif menu == "Admin Login":
-    st.subheader("Admin Login")
 
-    admin_id = st.text_input("Admin ID")
-    admin_pass = st.text_input("Admin Password", type="password")
+    if not st.session_state.admin_logged_in:
+        st.subheader("Admin Login")
 
-    if st.button("Admin Login"):
-        if admin_id == "admin" and admin_pass == "admin123":
-            st.success("Admin Login Successful")
+        admin_id = st.text_input("Admin ID")
+        admin_pass = st.text_input("Admin Password", type="password")
 
-            st.subheader("All Complaints")
-            df = pd.read_sql_query("SELECT rowid, * FROM complaints", conn)
-            st.dataframe(df)
+        if st.button("Admin Login"):
+            if admin_id == "admin" and admin_pass == "admin123":
+                st.session_state.admin_logged_in = True
+                st.rerun()
+            else:
+                st.error("Wrong Admin ID or Password")
 
-            st.subheader("Update Complaint Status")
-            cid = st.number_input("Enter Complaint ID", min_value=1)
-            status = st.selectbox("Update Status", ["Pending", "In Progress", "Resolved"])
+    else:
+        st.success("Admin Logged In")
 
-            if st.button("Update Status"):
-                c.execute("UPDATE complaints SET status=? WHERE rowid=?", (status, cid))
-                conn.commit()
-                st.success("Status Updated")
+        if st.button("Admin Logout"):
+            st.session_state.admin_logged_in = False
+            st.rerun()
 
-            st.subheader("Delete Complaint")
-            delete_id = st.number_input("Enter Complaint ID to Delete", min_value=1)
+        st.subheader("All Complaints")
+        df = pd.read_sql_query("SELECT rowid, * FROM complaints", conn)
+        st.dataframe(df)
 
-            if st.button("Delete Complaint"):
-                c.execute("DELETE FROM complaints WHERE rowid=?", (delete_id,))
-                conn.commit()
-                st.warning("Complaint Deleted")
+        st.subheader("Update Complaint Status")
+        cid = st.number_input("Enter Complaint ID", min_value=1)
+        status = st.selectbox("Update Status", ["Pending", "In Progress", "Resolved"])
 
-        else:
-            st.error("Wrong Admin ID or Password")
+        if st.button("Update Status"):
+            c.execute("UPDATE complaints SET status=? WHERE rowid=?", (status, cid))
+            conn.commit()
+            st.success("Status Updated")
+
+        st.subheader("Delete Complaint")
+        delete_id = st.number_input("Enter Complaint ID to Delete", min_value=1)
+
+        if st.button("Delete Complaint"):
+            c.execute("DELETE FROM complaints WHERE rowid=?", (delete_id,))
+            conn.commit()
+            st.warning("Complaint Deleted")
 
 conn.close()
