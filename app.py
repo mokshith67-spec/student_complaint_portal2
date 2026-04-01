@@ -12,27 +12,28 @@ menu = st.sidebar.selectbox("Menu", [
     "Admin Login"
 ])
 
-# Database
-conn = sqlite3.connect("complaints.db")
+# Database connection
+conn = sqlite3.connect("complaints.db", check_same_thread=False)
 c = conn.cursor()
 
-# Tables
+# Create tables
 c.execute("""CREATE TABLE IF NOT EXISTS complaints
              (roll TEXT, title TEXT, description TEXT, category TEXT, status TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS students
-             (roll TEXT, password TEXT)""")
+             (roll TEXT PRIMARY KEY, password TEXT)""")
 
 # Insert demo students
 students_data = [("101", "101"), ("102", "102"), ("103", "103")]
-c.executemany("INSERT OR IGNORE INTO students VALUES (?, ?)", students_data)
+for student in students_data:
+    c.execute("INSERT OR IGNORE INTO students (roll, password) VALUES (?, ?)", student)
 
 conn.commit()
 
 # Dashboard
 if menu == "Dashboard":
     st.subheader("Complaint Dashboard")
-    data = pd.read_sql("SELECT status, COUNT(*) as count FROM complaints GROUP BY status", conn)
+    data = pd.read_sql_query("SELECT status, COUNT(*) as count FROM complaints GROUP BY status", conn)
     if not data.empty:
         st.bar_chart(data.set_index("status"))
     else:
@@ -62,7 +63,7 @@ elif menu == "Student Login":
                 st.success("Complaint Submitted")
 
             st.subheader("My Complaints")
-            df = pd.read_sql(f"SELECT * FROM complaints WHERE roll='{roll}'", conn)
+            df = pd.read_sql_query("SELECT * FROM complaints WHERE roll=?", conn, params=(roll,))
             st.dataframe(df)
 
         else:
@@ -79,7 +80,7 @@ elif menu == "Admin Login":
         st.success("Admin Login Successful")
 
         st.subheader("All Complaints")
-        df = pd.read_sql("SELECT rowid, * FROM complaints", conn)
+        df = pd.read_sql_query("SELECT rowid, * FROM complaints", conn)
         st.dataframe(df)
 
         cid = st.number_input("Enter Complaint ID", min_value=1)
