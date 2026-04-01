@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
+import os
 
 st.set_page_config(page_title="Student Complaint Portal", layout="wide")
 
@@ -12,8 +13,9 @@ menu = st.sidebar.selectbox("Menu", [
     "Admin Login"
 ])
 
-# Database connection
-conn = sqlite3.connect("complaints.db", check_same_thread=False)
+# VERY IMPORTANT: Use writable temp path for Streamlit Cloud
+db_path = "/tmp/complaints.db"
+conn = sqlite3.connect(db_path, check_same_thread=False)
 c = conn.cursor()
 
 # Create tables
