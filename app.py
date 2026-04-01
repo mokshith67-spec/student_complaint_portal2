@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-import os
 
 st.set_page_config(page_title="Student Complaint Portal", layout="wide")
 
@@ -13,9 +12,13 @@ menu = st.sidebar.selectbox("Menu", [
     "Admin Login"
 ])
 
-# VERY IMPORTANT: Use writable temp path for Streamlit Cloud
-db_path = "/tmp/complaints.db"
-conn = sqlite3.connect(db_path, check_same_thread=False)
+# Use session to keep login state
+if "student_logged_in" not in st.session_state:
+    st.session_state.student_logged_in = False
+    st.session_state.roll = ""
+
+# Database in temp path
+conn = sqlite3.connect("/tmp/complaints.db", check_same_thread=False)
 c = conn.cursor()
 
 # Create tables
@@ -25,10 +28,10 @@ c.execute("""CREATE TABLE IF NOT EXISTS complaints
 c.execute("""CREATE TABLE IF NOT EXISTS students
              (roll TEXT PRIMARY KEY, password TEXT)""")
 
-# Insert demo students
+# Insert students
 students_data = [("101", "101"), ("102", "102"), ("103", "103")]
 for student in students_data:
-    c.execute("INSERT OR IGNORE INTO students (roll, password) VALUES (?, ?)", student)
+    c.execute("INSERT OR IGNORE INTO students VALUES (?, ?)", student)
 
 conn.commit()
 
@@ -43,35 +46,47 @@ if menu == "Dashboard":
 
 # Student Login
 elif menu == "Student Login":
-    st.subheader("Student Login")
 
-    roll = st.text_input("Roll Number")
-    password = st.text_input("Password", type="password")
+    if not st.session_state.student_logged_in:
+        st.subheader("Student Login")
 
-    if st.button("Login"):
-        result = c.execute("SELECT * FROM students WHERE roll=? AND password=?", (roll, password)).fetchone()
-        if result:
-            st.success("Login Successful")
+        roll = st.text_input("Roll Number")
+        password = st.text_input("Password", type="password")
 
-            st.subheader("Submit Complaint")
-            title = st.text_input("Complaint Title")
-            description = st.text_area("Description")
-            category = st.selectbox("Category", ["Hostel", "Food", "Academics", "Transport"])
+        if st.button("Login"):
+            result = c.execute("SELECT * FROM students WHERE roll=? AND password=?", (roll, password)).fetchone()
+            if result:
+                st.session_state.student_logged_in = True
+                st.session_state.roll = roll
+                st.success("Login Successful")
+                st.rerun()
+            else:
+                st.error("Invalid Roll Number or Password")
 
-            if st.button("Submit Complaint"):
-                c.execute("INSERT INTO complaints VALUES (?, ?, ?, ?, ?)",
-                          (roll, title, description, category, "Pending"))
-                conn.commit()
-                st.success("Complaint Submitted")
+    else:
+        st.success(f"Logged in as {st.session_state.roll}")
 
-            st.subheader("My Complaints")
-            c.execute("SELECT * FROM complaints WHERE roll=?", (roll,))
-            data = c.fetchall()
-            df = pd.DataFrame(data, columns=["Roll", "Title", "Description", "Category", "Status"])
-            st.dataframe(df)
+        if st.button("Logout"):
+            st.session_state.student_logged_in = False
+            st.session_state.roll = ""
+            st.rerun()
 
-        else:
-            st.error("Invalid Roll Number or Password")
+        st.subheader("Submit Complaint")
+        title = st.text_input("Complaint Title")
+        description = st.text_area("Description")
+        category = st.selectbox("Category", ["Hostel", "Food", "Academics", "Transport"])
+
+        if st.button("Submit Complaint"):
+            c.execute("INSERT INTO complaints VALUES (?, ?, ?, ?, ?)",
+                      (st.session_state.roll, title, description, category, "Pending"))
+            conn.commit()
+            st.success("Complaint Submitted")
+
+        st.subheader("My Complaints")
+        c.execute("SELECT * FROM complaints WHERE roll=?", (st.session_state.roll,))
+        data = c.fetchall()
+        df = pd.DataFrame(data, columns=["Roll", "Title", "Description", "Category", "Status"])
+        st.dataframe(df)
 
 # Admin Login
 elif menu == "Admin Login":
