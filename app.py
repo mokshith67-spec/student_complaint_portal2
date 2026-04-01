@@ -33,9 +33,9 @@ conn.commit()
 # Dashboard
 if menu == "Dashboard":
     st.subheader("Complaint Dashboard")
-    data = pd.read_sql_query("SELECT status, COUNT(*) as count FROM complaints GROUP BY status", conn)
-    if not data.empty:
-        st.bar_chart(data.set_index("status"))
+    df = pd.read_sql_query("SELECT status, COUNT(*) as count FROM complaints GROUP BY status", conn)
+    if not df.empty:
+        st.bar_chart(df.set_index("status"))
     else:
         st.write("No complaints yet")
 
@@ -63,7 +63,9 @@ elif menu == "Student Login":
                 st.success("Complaint Submitted")
 
             st.subheader("My Complaints")
-            df = pd.read_sql_query("SELECT * FROM complaints WHERE roll=?", conn, params=(roll,))
+            c.execute("SELECT * FROM complaints WHERE roll=?", (roll,))
+            data = c.fetchall()
+            df = pd.DataFrame(data, columns=["Roll", "Title", "Description", "Category", "Status"])
             st.dataframe(df)
 
         else:
